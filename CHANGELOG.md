@@ -5,6 +5,8 @@ versions follow [semver](https://semver.org/) as far as a command line tool has 
 
 ## [unreleased]
 
+- a pypi workflow: trusted publishing on a release, switched on by a repository variable
+
 - `--depth`: effective price and impact for 100k / 1m / 10m sales through the uniswap quoter v2
 
 - `--summary-append`: one row per coin per day, and a daily workflow that writes `data/daily.csv`
