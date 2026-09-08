@@ -22,6 +22,8 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/alinaschanz/stablepeg"
 Author = "https://alinaschanz.life"
+Issues = "https://github.com/alinaschanz/stablepeg/issues"
+Changelog = "https://github.com/alinaschanz/stablepeg/blob/main/CHANGELOG.md"
 
 [project.scripts]
 stablepeg = "stablepeg.cli:main"
@@ -33,5 +35,8 @@ packages = ["stablepeg"]
 testpaths = ["tests"]
 
 [tool.ruff]
-line-length = 130
+line-length = 140
 target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
