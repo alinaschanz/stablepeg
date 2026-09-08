@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 
 from . import __version__, curve
 from .coins import COINS, DEFAULT_QUOTE, pick
+from .quoter import SIZES, depth, impact_bp
 from .rpc import Rpc, RpcError, RpcUnavailable
 from .uniswap import PoolQuote, best_pool
 
@@ -57,6 +58,10 @@ def coingecko(ids: list[str], timeout: float = 15.0) -> dict[str, float]:
     return {k: float(v["usd"]) for k, v in body.items() if "usd" in v}
 
 
+def money(size: int) -> str:
+    return f"{size // 1_000_000}m" if size >= 1_000_000 else f"{size // 1_000}k"
+
+
 def bp(price: float | None) -> str:
     if price is None:
         return "n/a"
@@ -100,6 +105,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--twap", type=int, default=600, help="twap window in seconds, 0 to skip (default 600)")
     ap.add_argument("--size", type=float, default=100_000, help="curve 3pool swap size for the effective price (default 100,000)")
     ap.add_argument("--warn", type=float, default=50, help="flag deviations of at least this many basis points (default 50)")
+    ap.add_argument("--depth", action="store_true",
+                    help="price impact of a 100k, 1m and 10m sale through the same pool (uniswap quoter v2)")
     ap.add_argument("--json", action="store_true", help="json instead of the table")
     ap.add_argument("--no-coingecko", action="store_true", help="skip the coingecko comparison column")
     ap.add_argument("--no-curve", action="store_true", help="skip the curve 3pool lines")
@@ -127,6 +134,15 @@ def main(argv: list[str] | None = None) -> int:
         with ThreadPoolExecutor(max_workers=4) as pool:
             found = list(pool.map(lambda c: best_pool(rpc, c, quote, args.twap), coins))
         quotes = list(zip([c.symbol for c in coins], found, strict=True))
+        depths: dict[str, list[tuple[int, float]]] = {}
+        if args.depth:
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                jobs = [(s, pool.submit(depth, rpc, COINS[s], quote, q.fee)) for s, q in quotes if q]
+            for s, job in jobs:
+                try:
+                    depths[s] = job.result()
+                except (RpcError, RpcUnavailable) as exc:
+                    print(f"warning: depth for {s} unavailable ({exc})", file=sys.stderr)
         swaps = []
         vp = None
         if not args.no_curve:
@@ -153,6 +169,8 @@ def main(argv: list[str] | None = None) -> int:
             "curve_3pool": [{"in": s.coin_in.symbol, "out": s.coin_out.symbol, "amount_in": s.amount_in,
                              "amount_out": s.amount_out, "price": s.price} for s in swaps],
             "curve_virtual_price": vp,
+            "depth": {s: [{"size": size, "price": price, "impact_bp": impact_bp(price, next(q.spot for t, q in quotes if t == s and q))}
+                          for size, price in rows] for s, rows in depths.items()},
         }, indent=2))
         return 0
 
@@ -161,6 +179,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{quote.symbol} itself: ${cg[quote.coingecko]:.4f} on coingecko")
     print()
     print(table(quotes, quote.symbol, cg, args.twap, args.warn))
+    if depths:
+        print()
+        print(f"{'coin':<7} " + " ".join(f"{'sell ' + money(s):>12}" for s in SIZES) + "   (effective price, impact vs spot)")
+        for s, q in quotes:
+            if s in depths and q:
+                cells = " ".join(f"{price:.5f} {impact_bp(price, q.spot):+.0f}bp".rjust(12) for _, price in depths[s])
+                print(f"{s:<7} {cells}")
     if swaps:
         print()
         parts = [f"{s.amount_in:,.0f} {s.coin_in.symbol} -> {s.amount_out:,.0f} {s.coin_out.symbol} ({bp(s.price)})" for s in swaps]

@@ -3,7 +3,7 @@ import csv
 import json
 from fractions import Fraction
 
-from stablepeg import abi, cli, curve, uniswap
+from stablepeg import abi, cli, curve, quoter, uniswap
 from stablepeg.coins import COINS, pick
 from stablepeg.uniswap import Q96, oriented, price_from_sqrt, price_from_tick
 
@@ -86,6 +86,9 @@ class FakeRpc:
         if sel == abi.SEL["get_dy(int128,int128,uint256)"]:
             dx = int(data[-64:], 16)
             return bytes.fromhex(abi.word(dx - dx // 10_000))  # 1 bp of slippage, same decimals
+        if sel == quoter.SEL_QUOTE:
+            amount_in = int(data[10 + 64 * 2:10 + 64 * 3], 16)
+            return bytes.fromhex(abi.word(amount_in - amount_in // 2000) + abi.word(0) * 3)  # 5 bp worse, same decimals
         if sel == abi.SEL["get_virtual_price()"]:
             return bytes.fromhex(abi.word(int(1.0389 * 1e18)))
         raise AssertionError(sel)
@@ -137,6 +140,24 @@ def test_summary_append_replaces_the_day(tmp_path, monkeypatch, capsys):
         rows = list(csv.DictReader(f))
     keys = [(r["date_utc"], r["coin"]) for r in rows]
     assert keys == sorted(keys) and len(keys) == 2 and keys[0] == ("2024-01-01", "DAI") and keys[1][1] == "USDT"
+
+
+def test_depth_through_the_quoter():
+    rows = quoter.depth(FakeRpc(), USDT, USDC, 500, sizes=(100_000, 1_000_000))
+    assert [size for size, _ in rows] == [100_000, 1_000_000]
+    assert all(abs(price - 0.9995) < 1e-9 for _, price in rows)
+    assert abs(quoter.impact_bp(0.9995, 1.0) + 5) < 1e-9
+
+
+def test_cli_depth_table_and_json(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "Rpc", lambda urls=None: FakeRpc())
+    monkeypatch.setattr(cli, "coingecko", lambda ids: {})
+    assert cli.main(["--coins", "USDT", "--depth", "--no-curve"]) == 0
+    out = capsys.readouterr().out
+    assert "sell 100k" in out and "sell 10m" in out and "0.99950" in out
+    assert cli.main(["--coins", "USDT", "--depth", "--no-curve", "--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert [d["size"] for d in doc["depth"]["USDT"]] == [100_000, 1_000_000, 10_000_000]
 
 
 def test_cli_rejects_unknown_coin():

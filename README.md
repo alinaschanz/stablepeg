@@ -50,6 +50,7 @@ stablepeg                                       # the usual suspects against usd
 stablepeg --coins USDT,DAI,FDUSD,TUSD --quote USDT
 stablepeg --twap 1800 --size 1000000            # 30 minute twap, 1m curve swap
 stablepeg --warn 20                             # flag at 20 bp
+stablepeg --depth                               # what a 100k / 1m / 10m sale returns, impact in bp (quoter v2)
 stablepeg --json
 stablepeg --no-coingecko --no-curve             # chain only
 stablepeg --summary-append data/daily.csv --quiet   # one row per coin, the daily dataset
@@ -75,6 +76,12 @@ curve pool coin order against `coins(i)`.
 - every call is an `eth_call` over json-rpc via `urllib`; endpoints publicnode, drpc,
   mevblocker, tenderly, blastapi in that order, or `--rpc` yours. the fee tiers and the
   coins are fetched in parallel.
+
+`--depth` asks the [uniswap quoter v2](https://etherscan.io/address/0x61fFE014bA17989E743c5F6cB21bF9697530B21e)
+what selling 100k, 1m and 10m of the coin into the same pool would return; the impact is the
+effective price against the spot. a peg that holds for 100k and breaks at 10m is the interesting case.
+this is one uniswap pool: for dai and the newer coins most of the depth lives on curve and in the
+maker psm, so a big impact here reads as "not on uniswap", not as "depegged".
 
 ## reading the table
 
