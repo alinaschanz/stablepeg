@@ -1,0 +1,29 @@
+name: daily snapshot
+
+# one row per coin per day into data/daily.csv: spot, twap, the deepest pool, coingecko, curve.
+# no keys: everything comes from a public json-rpc endpoint and coingecko's public api.
+
+on:
+  schedule:
+    - cron: "27 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m stablepeg --summary-append data/daily.csv --quiet
+      - name: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/daily.csv
+          git diff --cached --quiet || git commit -m "data: snapshot $(date -u +%F)"
+          git push
