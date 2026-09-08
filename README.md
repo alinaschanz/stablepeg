@@ -3,6 +3,7 @@
 [![ci](https://github.com/alinaschanz/stablepeg/actions/workflows/ci.yml/badge.svg)](https://github.com/alinaschanz/stablepeg/actions/workflows/ci.yml)
 ![python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab)
 ![license mit](https://img.shields.io/badge/license-MIT-2b7a74)
+[![release](https://img.shields.io/github/v/release/alinaschanz/stablepeg?color=2b7a74)](https://github.com/alinaschanz/stablepeg/releases)
 
 are the stablecoins still a dollar? for each coin: spot and a 10 minute twap from its
 deepest uniswap v3 pool against usdc, what a 100k swap returns on curve 3pool, and the
