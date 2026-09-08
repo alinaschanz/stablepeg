@@ -79,7 +79,9 @@ class FakeRpc:
             sqrt_price = int((Fraction(1_000_500, 1_000_000) ** Fraction(1, 2)) * Q96) if to.endswith("a5" * 20) else Q96
             return bytes.fromhex(abi.word(sqrt_price) + abi.word(0) + abi.word(0) * 5)
         if sel == abi.SEL["observe(uint32[])"]:
-            return bytes.fromhex(abi.word(0x40) + abi.word(0xA0) + abi.word(2) + abi.word(0) + abi.word(600 * 3) + abi.word(2) + abi.word(0) + abi.word(0))
+            ticks = abi.word(2) + abi.word(0) + abi.word(600 * 3)
+            seconds = abi.word(2) + abi.word(0) + abi.word(0)
+            return bytes.fromhex(abi.word(0x40) + abi.word(0xA0) + ticks + seconds)
         if sel == abi.SEL["get_dy(int128,int128,uint256)"]:
             dx = int(data[-64:], 16)
             return bytes.fromhex(abi.word(dx - dx // 10_000))  # 1 bp of slippage, same decimals

@@ -54,12 +54,14 @@ def table(quotes: list[tuple[str, PoolQuote | None]], quote_symbol: str, cg: dic
             lines.append(f"{symbol:<7} {'no pool':<8} {'-':>9} {'-':>9} {'-':>9} {'-':>10}  {cg_text:>9}")
             continue
         twap_text = f"{q.twap:.5f}" if q.twap is not None else "n/a"
-        lines.append(f"{symbol:<7} {q.fee_pct:<8} {q.spot:>9.5f} {twap_text:>9} {bp(q.spot):>9} {liq(q.liquidity):>10}  {cg_text:>9}{flag(q.spot, warn_bp)}")
+        lines.append(f"{symbol:<7} {q.fee_pct:<8} {q.spot:>9.5f} {twap_text:>9} {bp(q.spot):>9} {liq(q.liquidity):>10}  "
+                     f"{cg_text:>9}{flag(q.spot, warn_bp)}")
     return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="stablepeg", description="are the stablecoins still a dollar? prices read from uniswap v3 and curve on mainnet.")
+    ap = argparse.ArgumentParser(prog="stablepeg",
+                                 description="are the stablecoins still a dollar? prices read from uniswap v3 and curve on mainnet.")
     ap.add_argument("--coins", metavar="SYMBOLS", help=f"comma separated, from: {', '.join(COINS)} (default: the usual suspects)")
     ap.add_argument("--quote", default=DEFAULT_QUOTE, help=f"what to price against (default {DEFAULT_QUOTE})")
     ap.add_argument("--twap", type=int, default=600, help="twap window in seconds, 0 to skip (default 600)")
@@ -82,13 +84,14 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_coingecko:
         try:
             cg = coingecko([c.coingecko for c in coins] + [quote.coingecko])
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"warning: coingecko unavailable ({exc})", file=sys.stderr)
     try:
         block = rpc.block_number()
         stamp = datetime.fromtimestamp(rpc.block_timestamp(block), tz=timezone.utc)
         with ThreadPoolExecutor(max_workers=4) as pool:
-            quotes = list(zip([c.symbol for c in coins], pool.map(lambda c: best_pool(rpc, c, quote, args.twap), coins)))
+            found = list(pool.map(lambda c: best_pool(rpc, c, quote, args.twap), coins))
+        quotes = list(zip([c.symbol for c in coins], found, strict=True))
         swaps = []
         vp = None
         if not args.no_curve:
@@ -125,7 +128,10 @@ def main(argv: list[str] | None = None) -> int:
         print("curve 3pool: " + ", ".join(parts) + (f", virtual price {vp:.4f}" if vp else ""))
     flagged = [s for s, q in quotes if q and abs(q.spot - 1) * 10_000 >= args.warn]
     print()
-    print("! = at least %g bp off the peg: %s" % (args.warn, ", ".join(flagged)) if flagged else f"nothing is more than {args.warn:g} bp off the peg")
+    if flagged:
+        print(f"! = at least {args.warn:g} bp off the peg: {', '.join(flagged)}")
+    else:
+        print(f"nothing is more than {args.warn:g} bp off the peg")
     return 0
 
 
