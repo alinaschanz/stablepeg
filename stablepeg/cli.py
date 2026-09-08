@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
+import os
 import sys
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +16,37 @@ from .rpc import Rpc, RpcError, RpcUnavailable
 from .uniswap import PoolQuote, best_pool
 
 USER_AGENT = "stablepeg/0.1 (+https://github.com/alinaschanz/stablepeg)"
+SUMMARY_FIELDS = ("date_utc", "block", "coin", "quote", "pool_fee", "spot", "twap", "liquidity", "coingecko", "curve_price")
+
+
+def summary_rows(date_utc: str, block: int, quote_symbol: str, quotes, cg: dict[str, float], swaps) -> list[dict]:
+    """one row per coin: the table as data."""
+    curve = {s.coin_in.symbol: s.price for s in swaps}
+    rows = []
+    for symbol, q in quotes:
+        rows.append({
+            "date_utc": date_utc, "block": block, "coin": symbol, "quote": quote_symbol,
+            "pool_fee": q.fee if q else "", "spot": f"{q.spot:.6f}" if q else "",
+            "twap": f"{q.twap:.6f}" if q and q.twap is not None else "", "liquidity": q.liquidity if q else "",
+            "coingecko": f"{cg[COINS[symbol].coingecko]:.6f}" if COINS[symbol].coingecko in cg else "",
+            "curve_price": f"{curve[symbol]:.6f}" if symbol in curve else "",
+        })
+    return rows
+
+
+def append_summary(path: str, rows: list[dict]) -> None:
+    """one row per (date, coin): a rerun for the same day replaces its rows, never adds twins."""
+    existing: list[dict] = []
+    if os.path.exists(path) and os.path.getsize(path):
+        with open(path, newline="", encoding="utf-8") as f:
+            existing = [r for r in csv.DictReader(f) if r.get("date_utc")]
+    fresh = {(r["date_utc"], r["coin"]) for r in rows}
+    merged = [r for r in existing if (r["date_utc"], r["coin"]) not in fresh] + rows
+    merged.sort(key=lambda r: (r["date_utc"], r["coin"]))
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=SUMMARY_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(merged)
 
 
 def coingecko(ids: list[str], timeout: float = 15.0) -> dict[str, float]:
@@ -71,6 +104,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-coingecko", action="store_true", help="skip the coingecko comparison column")
     ap.add_argument("--no-curve", action="store_true", help="skip the curve 3pool lines")
     ap.add_argument("--rpc", action="append", metavar="URL", help="json-rpc endpoint (repeatable, tried in order)")
+    ap.add_argument("--summary-append", metavar="PATH", help="append one row per coin to a csv (one set per utc date)")
+    ap.add_argument("--quiet", action="store_true", help="no table on stdout")
     ap.add_argument("--version", action="version", version=f"stablepeg {__version__}")
     args = ap.parse_args(argv)
 
@@ -103,6 +138,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
+    if args.summary_append:
+        append_summary(args.summary_append, summary_rows(stamp.strftime("%Y-%m-%d"), block, quote.symbol, quotes, cg, swaps))
+    if args.quiet:
+        return 0
     if args.json:
         print(json.dumps({
             "block": block, "time_utc": stamp.isoformat(), "quote": quote.symbol,

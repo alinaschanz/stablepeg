@@ -1,4 +1,5 @@
 """offline: abi encoding, uniswap price maths, pool selection and the table with a fake node."""
+import csv
 import json
 from fractions import Fraction
 
@@ -118,6 +119,24 @@ def test_cli_table_and_json(monkeypatch, capsys):
     assert cli.main(["--coins", "USDT", "--json", "--no-curve"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert doc["quote"] == "USDC" and doc["pools"][0]["fee"] == 500 and doc["curve_3pool"] == []
+
+
+def test_summary_append_replaces_the_day(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "Rpc", lambda urls=None: FakeRpc())
+    monkeypatch.setattr(cli, "coingecko", lambda ids: {"tether": 1.0002, "usd-coin": 0.9999})
+    path = tmp_path / "daily.csv"
+    assert cli.main(["--coins", "USDT", "--summary-append", str(path), "--quiet"]) == 0
+    assert capsys.readouterr().out == ""
+    assert cli.main(["--coins", "USDT", "--summary-append", str(path), "--quiet"]) == 0
+    with open(path, encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == 1 and rows[0]["coin"] == "USDT" and rows[0]["pool_fee"] == "500" and rows[0]["curve_price"].startswith("0.9999")
+    cli.append_summary(str(path), [{"date_utc": "2024-01-01", "block": 1, "coin": "DAI", "quote": "USDC", "pool_fee": 100, "spot": "1",
+                                    "twap": "", "liquidity": 1, "coingecko": "", "curve_price": ""}])
+    with open(path, encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    keys = [(r["date_utc"], r["coin"]) for r in rows]
+    assert keys == sorted(keys) and len(keys) == 2 and keys[0] == ("2024-01-01", "DAI") and keys[1][1] == "USDT"
 
 
 def test_cli_rejects_unknown_coin():

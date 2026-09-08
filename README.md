@@ -52,6 +52,7 @@ stablepeg --twap 1800 --size 1000000            # 30 minute twap, 1m curve swap
 stablepeg --warn 20                             # flag at 20 bp
 stablepeg --json
 stablepeg --no-coingecko --no-curve             # chain only
+stablepeg --summary-append data/daily.csv --quiet   # one row per coin, the daily dataset
 ```
 
 coins on offer: USDC, USDT, DAI, USDe, FRAX, LUSD, TUSD, PYUSD, crvUSD, GHO, USDS, FDUSD.
@@ -83,6 +84,12 @@ curve pool coin order against `coins(i)`.
 - a 0.01% pool with real liquidity and a twap that agrees with the spot is a price you
   can trust. a 1% pool with a wide gap between spot and twap is a thin market, and the
   coingecko column will usually disagree with it.
+
+## the dataset
+
+`data/daily.csv` gets one row per coin every night at 00:27 utc (spot, twap, pool, coingecko,
+curve): a small peg history that anyone can plot. columns are described in
+[data/README.md](data/README.md); a rerun for the same day replaces the day.
 
 ## see also
 
