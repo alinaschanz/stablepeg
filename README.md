@@ -4,6 +4,7 @@
 ![python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab)
 ![license mit](https://img.shields.io/badge/license-MIT-2b7a74)
 [![release](https://img.shields.io/github/v/release/alinaschanz/stablepeg?color=2b7a74)](https://github.com/alinaschanz/stablepeg/releases)
+[![openssf scorecard](https://api.scorecard.dev/projects/github.com/alinaschanz/stablepeg/badge)](https://scorecard.dev/viewer/?uri=github.com/alinaschanz/stablepeg)
 
 are the stablecoins still a dollar? for each coin: spot and a 10 minute twap from its
 deepest uniswap v3 pool against usdc, what a 100k swap returns on curve 3pool, and the
@@ -109,6 +110,20 @@ is a depeg alert in one line; `--summary-append` is the same data as rows, one p
 - [bigmoves](https://github.com/alinaschanz/bigmoves): the large transfers of these coins
 - [onchain-notes](https://github.com/alinaschanz/onchain-notes), [gasweek](https://github.com/alinaschanz/gasweek), [ens-lookup](https://github.com/alinaschanz/ens-lookup)
 - the notes: [alinaschanz.life](https://alinaschanz.life), the short version on [x](https://x.com/alinaschanz)
+
+## verify a release
+
+from the next release on, every release carries the sdist and the wheel, a `SHA256SUMS` file, an
+opentimestamps proof of that file, and a build provenance attestation made in github's own signing
+flow. with the files downloaded into one folder:
+
+    sha256sum -c SHA256SUMS
+    gh attestation verify ./*.whl --owner alinaschanz
+    ots verify SHA256SUMS.ots
+
+the attestation names the commit and the workflow run that produced the file; the timestamp proves
+the checksums existed before a certain bitcoin block; the commit itself is
+[signed](https://alinaschanz.life/verify/#commits).
 
 ## license
 
