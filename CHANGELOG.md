@@ -5,6 +5,8 @@ versions follow [semver](https://semver.org/) as far as a command line tool has 
 
 ## [unreleased]
 
+- `--summary-append`: one row per coin per day, and a daily workflow that writes `data/daily.csv`
+
 ## [0.1.0] - 2026-09-08
 
 first cut: stablecoin pegs from uniswap v3 and curve, next to coingecko.
