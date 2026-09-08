@@ -98,6 +98,12 @@ maker psm, so a big impact here reads as "not on uniswap", not as "depegged".
 curve): a small peg history that anyone can plot. columns are described in
 [data/README.md](data/README.md); a rerun for the same day replaces the day.
 
+## exit codes and scripting
+
+`0` after a table, `2` when a coin is unknown or no rpc answered. `--json` carries everything the table
+shows plus the raw pool addresses and liquidity, so `stablepeg --json | jq '.pools[] | select(.spot < 0.995)'`
+is a depeg alert in one line; `--summary-append` is the same data as rows, one per coin per day.
+
 ## see also
 
 - [bigmoves](https://github.com/alinaschanz/bigmoves): the large transfers of these coins
